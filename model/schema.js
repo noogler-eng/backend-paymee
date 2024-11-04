@@ -42,6 +42,10 @@ const account_schema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  upi_id: {
+    type: String,
+    required: true
+  },
   balance: {
     type: Number,
     required: true,
@@ -67,10 +71,18 @@ const user_schema = new mongoose.Schema({
     unique: true,
     required: true,
   },
+  imageUrl: {
+    type: String,
+    required: true
+  },
   password: {
     type: String,
     required: true,
   },
+  dateOfBirth: {
+    type: Date,
+    require: true
+  }
 });
 
 
