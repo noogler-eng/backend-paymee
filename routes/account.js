@@ -89,23 +89,16 @@ account_router.post("/update-info", async (req, res) => {
 // router to add money in user account
 // its something like air dropping the money
 // at max we can airdrop 5000 ruppess at a time
-account_router.post("/add-money", async (req, res) => {
+account_router.post("/airdrop", async (req, res) => {
   const user_id = req.body.user_id;
-  const amount = req.body.amount;
-
-  if (amount > 5000) {
-    res.status(411).json({
-      msg: "amount should be less than 5000",
-    });
-  }
 
   try {
     await Account.findOneAndUpdate(
       { user_id: user_id },
-      { $inc: { balance: amount } }
+      { $inc: { balance: 5000 } }
     );
     res.json({
-      msg: "money added successfully",
+      msg: "money airdroped successfully",
     });
   } catch (error) {
     res.json({
