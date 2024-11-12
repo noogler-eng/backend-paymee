@@ -56,7 +56,7 @@ auth_router.post("/sign-up", async (req, res) => {
     // creation of account on new user signup, email will be unique for each account
     const account = await Account.create({
       user_id: user._id,
-      balance: Math.floor(Math.random() * 100),
+      balance: 0,
     });
 
     res.json({
