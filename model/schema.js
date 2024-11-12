@@ -42,10 +42,6 @@ const account_schema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
-  upi_id: {
-    type: String,
-    required: true
-  },
   balance: {
     type: Number,
     required: true,
