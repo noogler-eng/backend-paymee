@@ -90,7 +90,8 @@ account_router.post("/update-info", async (req, res) => {
 // its something like air dropping the money
 // at max we can airdrop 5000 ruppess at a time
 account_router.post("/airdrop", async (req, res) => {
-  const user_id = req.body.user_id;
+  const user_id = req.body.userId;
+  console.log("reached");
 
   try {
     await Account.findOneAndUpdate(
@@ -112,73 +113,92 @@ account_router.post("/airdrop", async (req, res) => {
 // What if the database crashes right after the first request (only the balance is decreased for one user, and not for the second user)
 // What if the Node.js crashes after the first update?
 account_router.post("/transfer", async (req, res) => {
-  // mongoose provide an session object to perform transaction
   const session = await mongoose.startSession();
   const { from, amount, to } = req.body;
 
-  session.startTransaction();
-  const from_account = await Account.findOne({ user_id: from }).session(
-    session
-  );
+  try {
+    session.startTransaction();
 
-  if (!from_account || from_account.balance < amount) {
-    await session.abortTransaction();
+    // Fetch 'from' account
+    const from_account = await Account.findOne({ user_id: from }).session(
+      session
+    );
+    if (!from_account || from_account.balance < amount) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        msg: "Insufficient balance",
+      });
+    }
 
-    res.status(400).json({
-      msg: "insufficient balance",
+    // Fetch 'to' account
+    const to_account = await Account.findOne({ user_id: to }).session(session);
+    if (!to_account) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        msg: "Account not found",
+      });
+    }
+
+    // Performing the transaction: debit and credit
+    await from_account
+      .updateOne({ $inc: { balance: -amount } })
+      .session(session);
+    await to_account.updateOne({ $inc: { balance: amount } }).session(session);
+
+    // Fetching user details
+    const from_user = await User.findOne({ _id: from_account.user_id });
+    const to_user = await User.findOne({ _id: to_account.user_id });
+
+    const from_name = `${from_user.firstname} ${from_user.lastname}`;
+    const to_name = `${to_user.firstname} ${to_user.lastname}`;
+
+    // Creating the transaction record
+    await Transaction.create({
+      from_name,
+      to_name,
+      from: from_account._id,
+      to: to_account._id,
+      amount,
     });
-  }
 
-  const to_Account = await Account.findOne({ user_id: to }).session(session);
-  if (!to_Account) {
-    await session.abortTransaction();
+    // Commit the transaction
+    await session.commitTransaction();
 
-    res.status(400).json({
-      msg: "account not found",
+    return res.json({
+      msg: "Transfer successful",
     });
+  } catch (error) {
+    // Rollback in case of error
+    await session.abortTransaction();
+    console.error("Error during transaction:", error);
+    return res.status(500).json({
+      msg: "An error occurred during the transfer",
+    });
+  } finally {
+    // End the session
+    session.endSession();
   }
-
-  // perfomring transaction
-  from_account.updateOne({ $inc: { balance: -amount } }).session(session);
-  to_Account.updateOne({ $inc: { balance: amount } }).session(session);
-
-  const from_ = await User.findOne({ _id: from_account.user_id });
-  const to_ = await User.findOne({ _id: to_Account.user_id });
-
-  const from_name = from_.firstname + " " + from_.lastname;
-  const to_name = to_.firstname + " " + to_.lastname;
-
-  Transaction.create({
-    from_name: from_name,
-    to_name: to_name,
-    from: from_account._id,
-    to: to_Account._id,
-    amount: amount,
-  });
-
-  await session.commitTransaction();
-  res.json({
-    message: "Transfer successful",
-  });
 });
 
-// router to get the current balance of the user
+// getting balance of account
 account_router.get("/balance", async (req, res) => {
-  const input_header = req.headers;
-  let token = input_header.authorization;
-  token = token.split(" ")[1];
-
-  const decode = jwt.decode(token);
-  const email = decode.email;
+  const userId = req.query.userId;
+  if (!userId) {
+    return res.status(400).json({
+      msg: "User ID is required",
+    });
+  }
 
   try {
-    const user = await User.findOne({
-      email: email,
+    const account = await Account.findOne({
+      user_id: userId,
     });
 
-    const account = await Account.findOne({
-      user_id: user._id,
-    });
+    if (!account) {
+      return res.status(404).json({
+        msg: "Account not found",
+      });
+    }
 
     res.json({
       balance: account.balance,

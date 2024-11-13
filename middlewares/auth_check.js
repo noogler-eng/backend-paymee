@@ -1,14 +1,19 @@
 const jwt = require("jsonwebtoken");
 
-const auth_check_middleware = async (req, res, next) => {
+const auth_check_middleware = (req, res, next) => {
   try {
-    const input_header = await req.headers;
-    let token = input_header.authorization;
-    token = token.split(" ")[1];
+    let token = req.headers.authorization;
+    token = token?.split(" ")[1];
 
-    const isVerified = await jwt.verify(token, "secret_key");
+    if (!token) {
+      return res
+        .status(403)
+        .json({ msg: "Token missing. Please login first." });
+    }
 
-    if (isVerified.email) {
+    const isVerified = jwt.verify(token, "secret_key");
+
+    if (isVerified?.email) {
       next();
     } else {
       res.status(500).json({
@@ -17,7 +22,7 @@ const auth_check_middleware = async (req, res, next) => {
     }
   } catch (error) {
     res.status(403).json({
-      msg: "login first",
+      msg: "Invalid or expired token. Please login again.",
     });
     console.log(error);
   }

@@ -81,10 +81,9 @@ auth_router.post("/sign-in", async (req, res) => {
   const isValid = sign_in_schema.safeParse(input_body);
 
   if (!isValid.success) {
-    res.status(403).json({
+    return res.status(403).json({
       msg: "invalid credentials",
     });
-    return;
   }
 
   try {
@@ -96,7 +95,6 @@ auth_router.post("/sign-in", async (req, res) => {
       input_body.password,
       user.password
     );
-    console.log(isMatched, user);
 
     if (user && isMatched) {
       const token = await jwt.sign({ email: input_body.email }, "secret_key", {
